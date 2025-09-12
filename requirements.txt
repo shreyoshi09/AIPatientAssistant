@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+azure-ai-formrecognizer
+azure-ai-textanalytics
+openai
+python-multipart

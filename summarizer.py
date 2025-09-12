@@ -28,14 +28,8 @@ class OpenAISummarizer:
         Returns:
             str: Summary text with alerts
         """
-        prompt = f"""
-        You are a clinical assistant. Given the following FHIR bundle in JSON format:
-
-        {fhir_bundle}
-
-        1. Provide a short plain text clinical summary.  
-        2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
-        """
+      
+        prompt = self.build_openai_prompt(fhir_bundle)
 
         response = self.client.chat.completions.create(
             model=self.deployment,
@@ -48,3 +42,31 @@ class OpenAISummarizer:
         )
 
         return response.choices[0].message.content
+    
+    def build_openai_prompt(self,compact_fhir: dict) -> str:
+            """
+            Build a prompt for OpenAI summarization, handling fallback mode.
+            """
+            if compact_fhir.get("fallback_mode"):
+                # FHIR had no structured entries, rely on raw note_text
+                note_text = compact_fhir.get("note_text", "")
+                prompt = f"""
+                You are a medical summarization assistant. Given the following note text bundle in JSON format:
+
+                {note_text}
+
+                 1. Provide a short plain text clinical summary of maximum 30 words.  
+                2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
+                """
+            else:
+                    # FHIR has structured data, use it
+                prompt = f"""
+                You are a medical summarization assistant. Given the following FHIR bundle in JSON format:
+
+                {compact_fhir}
+
+                1. Provide a short plain text clinical summary of maximum 30 words.  
+                2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
+                """
+            return prompt
+

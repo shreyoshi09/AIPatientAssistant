@@ -55,3 +55,59 @@ class HealthTextAnalyzer:
             return result["tasks"]["items"][0]["results"]["documents"][0]["fhirBundle"]
         except KeyError:
             raise ValueError("FHIR bundle not found in response")
+
+    def preprocess_fhir_bundle(self, bundle: dict) -> dict:
+        """
+        Convert FHIR bundle into a compact structure for OpenAI summarization.
+        Falls back to raw clinical note text if structured resources are missing.
+        """
+        compact = {
+            "patient": {},
+            "conditions": [],
+            "medications": [],
+            "plan": [],
+            "note_text": ""
+        }
+
+        if not bundle or "entry" not in bundle:
+            return {"error": "Empty or invalid FHIR bundle"}
+
+        for entry in bundle.get("entry", []):
+            resource = entry.get("resource", {})
+            rtype = resource.get("resourceType")
+
+            if rtype == "Patient":
+                patient_name = resource.get("name", [{}])[0].get("text", "")
+                compact["patient"]["name"] = patient_name
+                compact["patient"]["gender"] = resource.get("gender", "unknown")
+                # Fallback: if no note yet, stash text from patient name
+                if not compact["note_text"] and patient_name:
+                    compact["note_text"] = patient_name
+
+            elif rtype == "Composition":
+                subject_display = resource.get("subject", {}).get("display", "")
+                if subject_display:
+                    compact["note_text"] = subject_display  # stronger fallback
+
+            elif rtype == "Condition":
+                condition = resource.get("code", {}).get("text", "")
+                if condition:
+                    compact["conditions"].append(condition)
+
+            elif rtype == "MedicationStatement":
+                med = resource.get("medicationCodeableConcept", {}).get("text", "")
+                if med:
+                    compact["medications"].append(med)
+
+            elif rtype in ("ServiceRequest", "ProcedureRequest"):
+                proc = resource.get("code", {}).get("text", "")
+                if proc:
+                    compact["plan"].append(proc)
+
+        # If no structured entities, rely on note_text
+        if not compact["conditions"] and not compact["medications"] and compact["note_text"]:
+            compact["fallback_mode"] = True
+        else:
+            compact["fallback_mode"] = False
+
+        return compact
