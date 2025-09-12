@@ -51,47 +51,22 @@ class OpenAISummarizer:
                 # FHIR had no structured entries, rely on raw note_text
                 note_text = compact_fhir.get("note_text", "")
                 prompt = f"""
-        You are a medical summarization assistant.
+                You are a medical summarization assistant. Given the following note text bundle in JSON format:
 
-        Extract the following information from the clinical note below:
+                {note_text}
 
-        1. Patient Name and Gender
-        2. Problems / Conditions
-        3. Medications
-        4. Plan / Recommendations
-
-        Output in JSON format like:
-        {{
-        "patient": {{"name": "...", "gender": "..."}},
-        "conditions": ["...", "..."],
-        "medications": ["...", "..."],
-        "plan": ["...", "..."]
-        }}
-
-        Clinical Note:
-        \"\"\"
-        {note_text}
-        \"\"\"
-        """
+                 1. Provide a short plain text clinical summary.  
+                2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
+                """
             else:
-                # FHIR has structured data, use it
+                    # FHIR has structured data, use it
                 prompt = f"""
-        You are a medical summarization assistant.
+                You are a medical summarization assistant. Given the following FHIR bundle in JSON format:
 
-        Summarize the following structured clinical data into a compact JSON:
+                {compact_fhir}
 
-        Patient: {compact_fhir.get('patient', {})}
-        Conditions: {compact_fhir.get('conditions', [])}
-        Medications: {compact_fhir.get('medications', [])}
-        Plan: {compact_fhir.get('plan', [])}
-
-        Output in JSON format like:
-        {{
-        "patient": {{"name": "...", "gender": "..."}},
-        "conditions": ["...", "..."],
-        "medications": ["...", "..."],
-        "plan": ["...", "..."]
-        }}
-        """
+                1. Provide a short plain text clinical summary.  
+                2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
+                """
             return prompt
 
