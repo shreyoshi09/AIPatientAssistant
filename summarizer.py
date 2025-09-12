@@ -28,14 +28,8 @@ class OpenAISummarizer:
         Returns:
             str: Summary text with alerts
         """
-        prompt = f"""
-        You are a clinical assistant. Given the following FHIR bundle in JSON format:
-
-        {fhir_bundle}
-
-        1. Provide a short plain text clinical summary.  
-        2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
-        """
+      
+        prompt = self.build_openai_prompt(fhir_bundle)
 
         response = self.client.chat.completions.create(
             model=self.deployment,
@@ -48,3 +42,56 @@ class OpenAISummarizer:
         )
 
         return response.choices[0].message.content
+    
+    def build_openai_prompt(self,compact_fhir: dict) -> str:
+            """
+            Build a prompt for OpenAI summarization, handling fallback mode.
+            """
+            if compact_fhir.get("fallback_mode"):
+                # FHIR had no structured entries, rely on raw note_text
+                note_text = compact_fhir.get("note_text", "")
+                prompt = f"""
+        You are a medical summarization assistant.
+
+        Extract the following information from the clinical note below:
+
+        1. Patient Name and Gender
+        2. Problems / Conditions
+        3. Medications
+        4. Plan / Recommendations
+
+        Output in JSON format like:
+        {{
+        "patient": {{"name": "...", "gender": "..."}},
+        "conditions": ["...", "..."],
+        "medications": ["...", "..."],
+        "plan": ["...", "..."]
+        }}
+
+        Clinical Note:
+        \"\"\"
+        {note_text}
+        \"\"\"
+        """
+            else:
+                # FHIR has structured data, use it
+                prompt = f"""
+        You are a medical summarization assistant.
+
+        Summarize the following structured clinical data into a compact JSON:
+
+        Patient: {compact_fhir.get('patient', {})}
+        Conditions: {compact_fhir.get('conditions', [])}
+        Medications: {compact_fhir.get('medications', [])}
+        Plan: {compact_fhir.get('plan', [])}
+
+        Output in JSON format like:
+        {{
+        "patient": {{"name": "...", "gender": "..."}},
+        "conditions": ["...", "..."],
+        "medications": ["...", "..."],
+        "plan": ["...", "..."]
+        }}
+        """
+            return prompt
+

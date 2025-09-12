@@ -1,0 +1,10 @@
+{
+    "MedicationStatement": [
+        {
+            "medication": "Ibuprofen",
+            "dosage": [
+                "200mg"
+            ]
+        }
+    ]
+}
