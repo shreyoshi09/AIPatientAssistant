@@ -6,9 +6,6 @@ import traceback
 import json
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 # Initialize FastAPI
