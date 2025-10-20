@@ -55,7 +55,7 @@ class OpenAISummarizer:
 
                 {note_text}
 
-                 1. Provide a short plain text clinical summary.  
+                 1. Provide a short plain text clinical summary of maximum 30 words.  
                 2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
                 """
             else:
@@ -65,7 +65,7 @@ class OpenAISummarizer:
 
                 {compact_fhir}
 
-                1. Provide a short plain text clinical summary.  
+                1. Provide a short plain text clinical summary of maximum 30 words.  
                 2. Highlight 1–2 critical alerts (e.g., allergies, drug interactions, abnormal values) if present.
                 """
             return prompt

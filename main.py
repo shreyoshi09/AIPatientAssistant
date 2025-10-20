@@ -1,50 +1,56 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from azure.ai.formrecognizer import DocumentAnalysisClient
-from azure.core.credentials import AzureKeyCredential
 from textanalysis import HealthTextAnalyzer
 from summarizer import OpenAISummarizer
 from formrecognizerclient import FormRecognizerClient
 import traceback
 import json
+import os
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # Initialize FastAPI
-app = FastAPI()
+app = FastAPI(
+    title="healthsumai-backend",
+    description="API Docs",
+    version="1.0.0"  
+)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://health-sum-ai.vercel.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Azure Cognitive Services (Language/FHIR) 
-LANGUAGE_ENDPOINT =  ''
-LANGUAGE_KEY = ''
+#Language Credentials
+LANGUAGE_ENDPOINT =  os.getenv("LANGUAGE_ENDPOINT")
+LANGUAGE_KEY = os.getenv("LANGUAGE_KEY")
 
 # Azure Form Recognizer credentials
-FORM_RECOGNIZER_ENDPOINT = ''
-FORM_RECOGNIZER_KEY = ''
+FORM_RECOGNIZER_ENDPOINT = os.getenv("FORM_RECOGNIZER_ENDPOINT")
+FORM_RECOGNIZER_KEY = os.getenv("FORM_RECOGNIZER_KEY")
 
 # Azure OpenAI
-AZURE_OPENAI_ENDPOINT = '' 
-AZURE_OPENAI_KEY = ''
-DEPLOYMENT_NAME = ''
-
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
+DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME")
 
 form_recognizer = FormRecognizerClient(FORM_RECOGNIZER_ENDPOINT,FORM_RECOGNIZER_KEY )
 
-@app.post("/process-note")
+@app.post("/process-note",  tags=["Summary"])
 async def process_note(
-    file: UploadFile = File(None),
-    note: str = Form(None),
-    patient_id: str = Form(None)
+    file: UploadFile = File(...),
+    patient_id: str = Form(...)
 ):
     try:
-        if not note and not file:
-            raise HTTPException(status_code=400, detail="Provide text or PDF")
+        if not file:
+            raise HTTPException(status_code=400, detail="Provide a file")
 
         # 1️⃣ Extract text
-        if file:
-            extracted_text = form_recognizer.extract_text_from_pdf(file)
-        else:
-            extracted_text = note
+      
+        extracted_text = form_recognizer.extract_text_from_pdf(file)
             
-
         # 2️⃣ Create payload dynamically for HealthTextAnalyzer
         payload = {
             "analysisInput": {
@@ -57,23 +63,12 @@ async def process_note(
             ]
         }
 
-        print("=== Extracted Text ===")
-        print(payload)
-
-        print("=== Extracted Text ===")
-        print(extracted_text)
-
 
         analyzer = HealthTextAnalyzer(LANGUAGE_ENDPOINT, LANGUAGE_KEY)
         # Get FHIR bundle directly
         fhir_bundle = analyzer.get_fhir_bundle(payload)
-        print("=== Raw FHIR ===")
-        print(json.dumps(fhir_bundle, indent=2))
 
         compact = analyzer.preprocess_fhir_bundle(fhir_bundle)
-        
-        print("=== Compact FHIR ===")
-        print(json.dumps(compact, indent=2))
 
         summarizer = OpenAISummarizer(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY,DEPLOYMENT_NAME)
         summary = summarizer.summarize_with_alerts(compact)
